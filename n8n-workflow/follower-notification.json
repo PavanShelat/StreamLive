@@ -59,7 +59,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO notifications (user_id, title, body) VALUES ('{{ $json.follower_id }}', '🔴 Live Now!', '{{ $('Get Creator Name').item.json.username }} just started a stream: {{ $('Webhook: Stream Started').item.json.body.record.title }}')",
+        "query": "INSERT INTO notifications (user_id, title, body) VALUES ('{{ $json.follower_id }}', '🔴 Live Now!', '{{ $('Get Creator Name').first().json.username }} just started a stream: {{ $('Webhook: Stream Started').first().json.body.record.title }}')",
         "options": {}
       },
       "id": "insert-notification",
@@ -74,7 +74,10 @@
   ],
   "connections": {
     "Webhook: Stream Started": {
-      "main": [[{ "node": "Get Followers", "type": "main", "index": 0 }, { "node": "Get Creator Name", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Get Creator Name", "type": "main", "index": 0 }]]
+    },
+    "Get Creator Name": {
+      "main": [[{ "node": "Get Followers", "type": "main", "index": 0 }]]
     },
     "Get Followers": {
       "main": [[{ "node": "Split Into Items", "type": "main", "index": 0 }]]

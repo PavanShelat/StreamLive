@@ -25,7 +25,8 @@ Broadcasting_Event/
 │       │   │   ├── _layout.tsx       ← Tab bar with notification dot
 │       │   │   ├── index.tsx         ← Browse streams (home)
 │       │   │   ├── go-live.tsx       ← Creator: start/end stream
-│       │   │   └── notifications.tsx ← In-app notification feed
+│       │   │   ├── notifications.tsx ← In-app notification feed
+│       │   │   └── digests.tsx       ← Leaderboard of top daily streams
 │       │   └── stream/
 │       │       └── [id].tsx          ← Viewer: watch stream
 │       ├── components/

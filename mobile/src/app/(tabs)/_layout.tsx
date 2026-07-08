@@ -81,6 +81,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="digests"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="Leaderboard" icon="🏆" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           tabBarIcon: ({ focused }) =>
