@@ -1,0 +1,89 @@
+{
+  "name": "Follower Notification — Stream Started",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stream-started",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-stream-started",
+      "name": "Webhook: Stream Started",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "stream-started"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT follower_id FROM follows WHERE creator_id = '{{ $json.body.record.creator_id }}'",
+        "options": {}
+      },
+      "id": "get-followers",
+      "name": "Get Followers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT username FROM profiles WHERE id = '{{ $json.body.record.creator_id }}'",
+        "options": {}
+      },
+      "id": "get-creator-name",
+      "name": "Get Creator Name",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 480],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-followers",
+      "name": "Split Into Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (user_id, title, body) VALUES ('{{ $json.follower_id }}', '🔴 Live Now!', '{{ $('Get Creator Name').item.json.username }} just started a stream: {{ $('Webhook: Stream Started').item.json.body.record.title }}')",
+        "options": {}
+      },
+      "id": "insert-notification",
+      "name": "Insert Notification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Stream Started": {
+      "main": [[{ "node": "Get Followers", "type": "main", "index": 0 }, { "node": "Get Creator Name", "type": "main", "index": 0 }]]
+    },
+    "Get Followers": {
+      "main": [[{ "node": "Split Into Items", "type": "main", "index": 0 }]]
+    },
+    "Split Into Items": {
+      "main": [[{ "node": "Insert Notification", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "broadcasting" }]
+}

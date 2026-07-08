@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      # Credentials stored in the volume, not env vars
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=broadcasting123
+      # Timezone for cron jobs
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Mount exported workflows for easy import
+      - ./n8n-workflow:/home/node/workflows:ro
+    extra_hosts:
+      - "db.pslnvjaxbdzpalkxeben.supabase.co:3.108.251.216"
+
+volumes:
+  n8n_data:
+

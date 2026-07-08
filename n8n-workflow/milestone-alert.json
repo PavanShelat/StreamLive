@@ -1,0 +1,90 @@
+{
+  "name": "Milestone Alert — Viewer Count Threshold",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "metadata-logged",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-metadata",
+      "name": "Webhook: Metadata Logged",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "metadata-logged"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "milestone-100",
+              "leftValue": "={{ $json.body.record.viewer_count }}",
+              "rightValue": 100,
+              "operator": { "type": "number", "operation": "equals" }
+            },
+            {
+              "id": "milestone-200",
+              "leftValue": "={{ $json.body.record.viewer_count }}",
+              "rightValue": 200,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "any"
+        }
+      },
+      "id": "check-milestone",
+      "name": "Check Milestone",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT creator_id FROM streams WHERE id = '{{ $json.body.record.stream_id }}'",
+        "options": {}
+      },
+      "id": "get-creator",
+      "name": "Get Creator",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [680, 240],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (user_id, title, body) VALUES ('{{ $json.creator_id }}', '🎉 Milestone Reached!', 'Your stream just hit {{ $('Webhook: Metadata Logged').item.json.body.record.viewer_count }} viewers!')",
+        "options": {}
+      },
+      "id": "alert-creator",
+      "name": "Alert Creator",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 240],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Metadata Logged": {
+      "main": [[{ "node": "Check Milestone", "type": "main", "index": 0 }]]
+    },
+    "Check Milestone": {
+      "main": [[{ "node": "Get Creator", "type": "main", "index": 0 }]]
+    },
+    "Get Creator": {
+      "main": [[{ "node": "Alert Creator", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "broadcasting" }]
+}

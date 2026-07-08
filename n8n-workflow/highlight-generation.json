@@ -1,0 +1,109 @@
+{
+  "name": "Highlight Generation — Stream Ended",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stream-ended",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-stream-ended",
+      "name": "Webhook: Stream Ended",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "stream-ended"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM stream_metadata_log WHERE stream_id = '{{ $json.body.record.id }}' ORDER BY recorded_at ASC",
+        "options": {}
+      },
+      "id": "fetch-metadata",
+      "name": "Fetch Metadata Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nif (rows.length === 0) return [];\n\nconst streamId = $('Webhook: Stream Ended').item.json.body.record.id;\nconst highlights = [];\n\n// 1. Viewer milestone detection\nconst milestones = [100, 200, 500, 1000];\nconst crossed = new Set();\nfor (const row of rows) {\n  for (const m of milestones) {\n    if (row.viewer_count >= m && !crossed.has(m)) {\n      crossed.add(m);\n      highlights.push({\n        stream_id: streamId,\n        occurred_at: row.recorded_at,\n        reason: `Viewer count crossed ${m}`\n      });\n    }\n  }\n}\n\n// 2. Chat spike detection (2x rolling average)\nconst msgCounts = rows.map(r => r.message_count_per_minute);\nconst totalAvg = msgCounts.reduce((a, b) => a + b, 0) / (msgCounts.length || 1);\nconst threshold = Math.max(totalAvg * 2, 5); // at least 5 msgs/min to qualify\n\nfor (const row of rows) {\n  if (row.message_count_per_minute >= threshold) {\n    highlights.push({\n      stream_id: streamId,\n      occurred_at: row.recorded_at,\n      reason: `High chat activity (${row.message_count_per_minute} msgs/min)`\n    });\n  }\n}\n\nreturn highlights.map(h => ({ json: h }));"
+      },
+      "id": "detect-peaks",
+      "name": "Detect Peak Moments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        }
+      },
+      "id": "has-highlights",
+      "name": "Has Highlights?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-highlights",
+      "name": "Split Highlights",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO highlights (stream_id, occurred_at, reason) VALUES ('{{ $json.stream_id }}', '{{ $json.occurred_at }}', '{{ $json.reason }}')",
+        "options": {}
+      },
+      "id": "insert-highlight",
+      "name": "Insert Highlight",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1340, 240],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Stream Ended": {
+      "main": [[{ "node": "Fetch Metadata Log", "type": "main", "index": 0 }]]
+    },
+    "Fetch Metadata Log": {
+      "main": [[{ "node": "Detect Peak Moments", "type": "main", "index": 0 }]]
+    },
+    "Detect Peak Moments": {
+      "main": [[{ "node": "Has Highlights?", "type": "main", "index": 0 }]]
+    },
+    "Has Highlights?": {
+      "main": [[{ "node": "Split Highlights", "type": "main", "index": 0 }]]
+    },
+    "Split Highlights": {
+      "main": [[{ "node": "Insert Highlight", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "broadcasting" }]
+}

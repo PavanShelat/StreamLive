@@ -1,0 +1,71 @@
+{
+  "name": "Daily Digest — Top Streams",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 18 * * *" }]
+        }
+      },
+      "id": "cron-daily",
+      "name": "Cron: Daily at Midnight IST (18:30 UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT s.id, s.title, p.username AS creator, MAX(ml.viewer_count) AS peak_viewers, SUM(ml.message_count_per_minute) AS total_messages FROM stream_metadata_log ml JOIN streams s ON s.id = ml.stream_id JOIN profiles p ON p.id = s.creator_id WHERE ml.recorded_at >= NOW() - INTERVAL '24 hours' GROUP BY s.id, s.title, p.username ORDER BY peak_viewers DESC LIMIT 10",
+        "options": {}
+      },
+      "id": "fetch-top-streams",
+      "name": "Fetch Top Streams",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const streams = $input.all().map(i => i.json);\nconst today = new Date().toISOString().split('T')[0];\nreturn [{ json: { digest_date: today, top_streams: streams } }];"
+      },
+      "id": "build-digest",
+      "name": "Build Digest Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO daily_digests (digest_date, top_streams) VALUES ('{{ $json.digest_date }}', '{{ JSON.stringify($json.top_streams) }}'::jsonb) ON CONFLICT (digest_date) DO UPDATE SET top_streams = EXCLUDED.top_streams",
+        "options": {}
+      },
+      "id": "upsert-digest",
+      "name": "Upsert Daily Digest",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": { "id": "supabase-pg", "name": "Supabase Postgres" }
+      }
+    }
+  ],
+  "connections": {
+    "Cron: Daily at Midnight IST (18:30 UTC)": {
+      "main": [[{ "node": "Fetch Top Streams", "type": "main", "index": 0 }]]
+    },
+    "Fetch Top Streams": {
+      "main": [[{ "node": "Build Digest Payload", "type": "main", "index": 0 }]]
+    },
+    "Build Digest Payload": {
+      "main": [[{ "node": "Upsert Daily Digest", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "broadcasting" }]
+}
