@@ -32,9 +32,27 @@ function ActiveStream({ stream, room, onEnd }: {
   onEnd: () => void
 }) {
   const { messages, sendMessage, isOnline, syncing } = useChat(stream.id)
+  const { user } = useAuth()
   const metadataTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const [localVideoTrack, setLocalVideoTrack] = useState<Track | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+
+  // Listen for real-time notifications (like milestones) and alert the creator
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel(`milestone-alerts-${stream.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          Alert.alert(payload.new.title, payload.new.body)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user, stream.id])
 
   // Log metadata every 60s
   useEffect(() => {

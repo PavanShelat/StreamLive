@@ -18,7 +18,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT follower_id FROM follows WHERE creator_id = '{{ $json.body.record.creator_id }}'",
+        "query": "SELECT follower_id FROM follows WHERE creator_id = '{{ $('Webhook: Stream Started').first().json.body.record.creator_id }}'",
         "options": {}
       },
       "id": "get-followers",

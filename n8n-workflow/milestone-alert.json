@@ -27,6 +27,12 @@
               "operator": { "type": "number", "operation": "equals" }
             },
             {
+              "id": "milestone-2",
+              "leftValue": "={{ $json.body.record.viewer_count }}",
+              "rightValue": 2,
+              "operator": { "type": "number", "operation": "largerEqual" }
+            },
+            {
               "id": "milestone-200",
               "leftValue": "={{ $json.body.record.viewer_count }}",
               "rightValue": 200,
